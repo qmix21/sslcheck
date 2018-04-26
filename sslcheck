@@ -1,0 +1,89 @@
+#!/usr/bin/env php
+<?php
+
+error_reporting(E_ERROR | E_PARSE);
+
+#this is the function to return the parsed cert information
+function getCert($domain) {
+    #creating context that allows self signed certificates
+    $g = stream_context_create (array("ssl" => array("capture_peer_cert" => true,"allow_self_signed" => true,"verify_peer" => false, "verify_peer_name" => false)));
+    $r = stream_socket_client("ssl://{$domain}:443", $errno, $errstr, 30, STREAM_CLIENT_CONNECT, $g);
+    $cont = stream_context_get_params($r);
+    return openssl_x509_parse($cont["options"]["ssl"]["peer_certificate"]);
+}
+#Function to set different color depending on how many days are left
+function getOutputColor($daysLeft) {
+    if ($daysLeft > 30) return "\e[32m";
+    if ($daysLeft > 15) return "\e[33m";
+    return "\e[31m";
+}
+
+#getting the domains from command line
+$domains = array_slice($argv, 1);
+
+#Counting how many domains there are
+$domainCount = count($domains);
+
+#if no domains were inputted then print an example use
+if ($domainCount === 0) {
+    echo "\e[34m\n";
+    echo "------------------------------------------------------------\n";
+    echo "Domain SSL Checker \n";
+    echo "------------------------------------------------------------\n\n";
+    echo "Usage:\t\t sslcheck [DOMAINS]...  \n";
+    echo "Example:\t sslcheck www.example.com www.google.com  \n";
+    echo "\e[0m\n";
+    return;
+}
+#gettign the time and setting Arrays
+$now = new DateTime();
+$expiringSoon = [];
+$errors = [];
+
+#looping through each domain
+foreach ($domains as $domain) {
+    #getting cert information from using function
+    $cert = getCert($domain);
+
+#if there is no cert print that the domain has no certificate or is expired
+    if (!$cert) {
+        $errors[] =  $domain . "Has no Certificate or is Expired.\n";
+        continue;
+    }
+    #getting expiry dates
+    $validFrom = new DateTime("@" . $cert['validFrom_time_t']);
+    $validTo = new DateTime("@" . $cert['validTo_time_t']);
+    $diff = $now->diff($validTo);
+    $daysLeft = $diff->invert ? 0 : $diff->days;
+
+    #getting the issuer
+    $issuer = $cert['issuer']['CN'];	
+
+    #getting the sans
+    $san = $cert['extensions']['subjectAltName'];
+    $san = str_replace("DNS:","",$san);
+
+    #gettings the CN
+    $commonname = $cert['subject']['CN'];	 
+
+    #printing out the information
+    if ($daysLeft <= 15) $expiringSoon[] = $domain;
+    echo getOutputColor($daysLeft);
+    echo $domain . "\n";
+    echo "\tValid From:\t " . $validFrom->format('jS M Y') . ' (' . $validFrom->format('Y-m-d H:i:s') . ")\n";
+    echo "\tValid To:\t " . $validTo->format('jS M Y') . ' (' . $validTo->format('Y-m-d H:i:s') . ")\n";
+    echo "\tDays Left:\t " . $daysLeft . "\n";
+    echo "\tIssuer:\t " . $issuer . "\n";
+    echo "\tSans:\t" . $san . "\n";
+    echo "\tCN:\t" . $commonname . "\n";
+    echo "\e[0m\n";
+}
+
+#printing errors
+if (count($errors) > 0) {
+    echo "\e[31m";
+    echo "------------------------------------------------------------\n";
+    echo "Errors:\n\n" . implode("\n", $errors);
+    echo "------------------------------------------------------------\n";
+    echo "\e[0m\n";
+}
