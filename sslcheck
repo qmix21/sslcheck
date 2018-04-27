@@ -44,6 +44,9 @@ $errors = [];
 foreach ($domains as $domain) {
     #getting cert information from using function
     $cert = getCert($domain);
+    
+    #getting A Record
+    $aRecord = dns_get_record($domain,DNS_A);
 
 #if there is no cert print that the domain has no certificate or is expired
     if (!$cert) {
@@ -70,6 +73,7 @@ foreach ($domains as $domain) {
     if ($daysLeft <= 15) $expiringSoon[] = $domain;
     echo getOutputColor($daysLeft);
     echo $domain . "\n";
+    echo "\tResolves From:\t " .$aRecord[0]['ip'] . "\n";
     echo "\tValid From:\t " . $validFrom->format('jS M Y') . ' (' . $validFrom->format('Y-m-d H:i:s') . ")\n";
     echo "\tValid To:\t " . $validTo->format('jS M Y') . ' (' . $validTo->format('Y-m-d H:i:s') . ")\n";
     echo "\tDays Left:\t " . $daysLeft . "\n";
