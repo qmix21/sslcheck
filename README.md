@@ -1,9 +1,17 @@
-This is a readme on how to use sslcheck.
+SSLCheck via CLI
 
-Must use on commandline.
+sslcheck must have execution permissions
+
+chmod +x sslcheck
 
 
-Create an alias using .bashrc then you can run it anywhere
+Create an alias using .bashrc then you can run it anywhere on command line.
+
+vim (or nano?) .bashrc
+
+export set PATH=$PATH:*location of script in this case ->*~/scripts/
+
+
 
 Example use:
 
