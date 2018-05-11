@@ -2,8 +2,9 @@
 
 **sslcheck must have execution permissions**
 
-> chmod +x sslcheck
-
+```
+ chmod +x sslcheck
+```
 
 Create an alias using .bashrc then you can run it anywhere on command line.
 
