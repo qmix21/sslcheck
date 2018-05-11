@@ -19,9 +19,8 @@ Example use:
 
 ```
 sslcheck example.com
-```
 
-```
+
 example.com
         Valid From:      3rd Nov 2015 (2015-11-03 00:00:00)
         Valid To:        28th Nov 2018 (2018-11-28 12:00:00)
