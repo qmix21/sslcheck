@@ -1,4 +1,4 @@
-#SSLCheck via CLI
+# SSLCheck via CLI
 
 **sslcheck must have execution permissions**
 
