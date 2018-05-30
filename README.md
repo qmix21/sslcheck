@@ -1,6 +1,7 @@
 # SSLCheck via CLI
 
 **sslcheck must have execution permissions**
+**sslcheck must also have the Client.php in the same directory for it to work as it uses a class inside that file**
 
 ```
  chmod +x sslcheck
