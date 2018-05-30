@@ -1,6 +1,9 @@
 #!/usr/bin/env php
 <?php
 
+#including Client.php for checking server type.
+require("Client.php");
+
 error_reporting(E_ERROR | E_PARSE);
 
 #this is the function to return the parsed cert information
@@ -16,6 +19,30 @@ function getOutputColor($daysLeft) {
     if ($daysLeft > 30) return "\e[32m";
     if ($daysLeft > 15) return "\e[33m";
     return "\e[31m";
+}
+
+function getServerType($domain) {
+    #telnetting port 80 for domain
+    $client = new PhpTelnet\Client($domain,80);
+
+    #querying for response and saving response
+    $html=$client->execute('GET / HTML/1.1');
+
+    #closing connection
+    $client->disconnect('');
+
+    #splitting everything up to get server type
+    $arr=explode("\n",$html);
+
+    #Looping through arr to find Server
+    foreach($arr as &$a){
+        if(strpos($a, 'Server') !== false)
+        {
+            $serverType=$a;
+        }
+    }
+    #returning server type
+    return $serverType;
 }
 
 #getting the domains from command line
@@ -69,10 +96,13 @@ foreach ($domains as $domain) {
     #gettings the CN
     $commonname = $cert['subject']['CN'];	 
 
+    #getting server type
+    $serverType = getServerType($domain);
     #printing out the information
     if ($daysLeft <= 15) $expiringSoon[] = $domain;
     echo getOutputColor($daysLeft);
-    echo $domain . "\n";
+    echo "\tDomain:\t " .$domain . "\n";
+    echo "\t".$serverType."\n";
     echo "\tResolves From:\t " .$aRecord[0]['ip'] . "\n";
     echo "\tValid From:\t " . $validFrom->format('jS M Y') . ' (' . $validFrom->format('Y-m-d H:i:s') . ")\n";
     echo "\tValid To:\t " . $validTo->format('jS M Y') . ' (' . $validTo->format('Y-m-d H:i:s') . ")\n";
