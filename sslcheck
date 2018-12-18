@@ -2,43 +2,87 @@
 <?php
 
 #including Client.php for checking server type.
-require("Client.php");
+require "Client.php";
 
 error_reporting(E_ERROR | E_PARSE);
 
+#Function to check what TLS protocols are open
+function checkProtocols($domain)
+{
+    #Setting Protocols
+    $protocols = [
+        'TLS1.0' => ['protocol' => CURL_SSLVERSION_TLSv1_0, 'sec' => false],
+        'TLS1.1' => ['protocol' => CURL_SSLVERSION_TLSv1_1, 'sec' => false],
+        'TLS1.2' => ['protocol' => CURL_SSLVERSION_TLSv1_2, 'sec' => true],
+        'TLS1.3' => ['protocol' => CURL_SSLVERSION_TLSv1_3, 'sec' => true],
+    ];
+
+    #looping through each Protocol
+    foreach ($protocols as $name => $value) {
+        #Initialising curl object?
+        $ch = curl_init();
+
+        #setting options to the curl object
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_SSLVERSION, $value['protocol']);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+        #Getting a response for the above variable
+        $response = curl_exec($ch) !== false;
+
+        #Checking if its enabled or not.
+        if ($value['sec'] && !$response) {
+            echo "\e[31mSecure $name not supported =( \e[0m\n";
+        } elseif ($value['sec'] && $response) {
+            echo "\e[32mOk! Secure $name supported \e[0m\n";
+        } elseif (!$value['sec'] && $response) {
+            echo "\e[31mInsecure $name supported =( \e[0m\n";
+        } elseif (!$value['sec'] && !$response) {
+            echo "\e[32mOk! Insecure $name not supported \e[0m\n";
+        }
+    }
+}
 #this is the function to return the parsed cert information
-function getCert($domain) {
+function getCert($domain)
+{
     #creating context that allows self signed certificates
-    $g = stream_context_create (array("ssl" => array("capture_peer_cert" => true,"allow_self_signed" => true,"verify_peer" => false, "verify_peer_name" => false)));
+    $g = stream_context_create(array("ssl" => array("capture_peer_cert" => true, "allow_self_signed" => true, "verify_peer" => false, "verify_peer_name" => false)));
     $r = stream_socket_client("ssl://{$domain}:443", $errno, $errstr, 30, STREAM_CLIENT_CONNECT, $g);
     $cont = stream_context_get_params($r);
     return openssl_x509_parse($cont["options"]["ssl"]["peer_certificate"]);
 }
 #Function to set different color depending on how many days are left
-function getOutputColor($daysLeft) {
-    if ($daysLeft > 30) return "\e[32m";
-    if ($daysLeft > 15) return "\e[33m";
+function getOutputColor($daysLeft)
+{
+    if ($daysLeft > 30) {
+        return "\e[32m";
+    }
+
+    if ($daysLeft > 15) {
+        return "\e[33m";
+    }
+
     return "\e[31m";
 }
 
-function getServerType($domain) {
+function getServerType($domain)
+{
     #telnetting port 80 for domain
-    $client = new PhpTelnet\Client($domain,80);
+    $client = new PhpTelnet\Client($domain, 80);
 
     #querying for response and saving response
-    $html=$client->execute('GET / HTML/1.1');
+    $html = $client->execute('GET / HTML/1.1');
 
     #closing connection
     $client->disconnect('');
 
     #splitting everything up to get server type
-    $arr=explode("\n",$html);
+    $arr = explode("\n", $html);
 
     #Looping through arr to find Server
-    foreach($arr as &$a){
-        if(strpos($a, 'Server') !== false)
-        {
-            $serverType=$a;
+    foreach ($arr as &$a) {
+        if (strpos($a, 'Server') !== false) {
+            $serverType = $a;
         }
     }
     #returning server type
@@ -71,13 +115,13 @@ $errors = [];
 foreach ($domains as $domain) {
     #getting cert information from using function
     $cert = getCert($domain);
-    
+
     #getting A Record
-    $aRecord = dns_get_record($domain,DNS_A);
+    $aRecord = dns_get_record($domain, DNS_A);
 
 #if there is no cert print that the domain has no certificate or is expired
     if (!$cert) {
-        $errors[] =  $domain . "Has no Certificate or is Expired.\n";
+        $errors[] = $domain . "Has no Certificate or is Expired.\n";
         continue;
     }
     #getting expiry dates
@@ -87,23 +131,29 @@ foreach ($domains as $domain) {
     $daysLeft = $diff->invert ? 0 : $diff->days;
 
     #getting the issuer
-    $issuer = $cert['issuer']['CN'];	
-
+    $issuer = $cert['issuer']['CN'];
+    if ($issuer === $domain) {
+        $errors[] = $domain . "Has a Self Signed Certificate.\n";
+        continue;
+    }
     #getting the sans
     $san = $cert['extensions']['subjectAltName'];
-    $san = str_replace("DNS:","",$san);
+    $san = str_replace("DNS:", "", $san);
 
     #gettings the CN
-    $commonname = $cert['subject']['CN'];	 
+    $commonname = $cert['subject']['CN'];
 
     #getting server type
     $serverType = getServerType($domain);
     #printing out the information
-    if ($daysLeft <= 15) $expiringSoon[] = $domain;
+    if ($daysLeft <= 15) {
+        $expiringSoon[] = $domain;
+    }
+
     echo getOutputColor($daysLeft);
-    echo "\tDomain:\t " .$domain . "\n";
-    echo "\t".$serverType."\n";
-    echo "\tResolves From:\t " .$aRecord[0]['ip'] . "\n";
+    echo "\tDomain:\t " . $domain . "\n";
+    echo "\t" . $serverType . "\n";
+    echo "\tResolves From:\t " . $aRecord[0]['ip'] . "\n";
     echo "\tValid From:\t " . $validFrom->format('jS M Y') . ' (' . $validFrom->format('Y-m-d H:i:s') . ")\n";
     echo "\tValid To:\t " . $validTo->format('jS M Y') . ' (' . $validTo->format('Y-m-d H:i:s') . ")\n";
     echo "\tDays Left:\t " . $daysLeft . "\n";
@@ -111,6 +161,7 @@ foreach ($domains as $domain) {
     echo "\tSans:\t" . $san . "\n";
     echo "\tCN:\t" . $commonname . "\n";
     echo "\e[0m\n";
+    checkProtocols($domain);
 }
 
 #printing errors
